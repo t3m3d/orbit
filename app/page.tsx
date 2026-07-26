@@ -2,25 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-type TorrentStatus = "downloading" | "seeding" | "paused" | "complete";
+import {
+  addMagnetToNode,
+  addTorrentFileToNode,
+  listNodeTorrents,
+  runNodeAction,
+  testNode,
+  type NodeConfig,
+  type OrbitTorrent,
+  type TorrentStatus,
+} from "./orbit-node";
 
-type Torrent = {
-  id: number;
-  name: string;
-  meta: string;
-  size: string;
-  progress: number;
-  status: TorrentStatus;
-  down: string;
-  up: string;
-  peers: number;
-  eta: string;
-  kind: string;
-  accent: string;
-  hash: string;
-};
-
-const starterTorrents: Torrent[] = [
+const starterTorrents: OrbitTorrent[] = [
   {
     id: 1,
     name: "Aurora Linux 4.2",
@@ -106,7 +99,7 @@ const statusCopy: Record<TorrentStatus, string> = {
 };
 
 export default function Home() {
-  const [torrents, setTorrents] = useState<Torrent[]>(starterTorrents);
+  const [torrents, setTorrents] = useState<OrbitTorrent[]>(starterTorrents);
   const [selectedId, setSelectedId] = useState(1);
   const [filter, setFilter] = useState<"all" | TorrentStatus>("all");
   const [search, setSearch] = useState("");
@@ -114,6 +107,11 @@ export default function Home() {
   const [magnet, setMagnet] = useState("");
   const [newName, setNewName] = useState("");
   const [toast, setToast] = useState("");
+  const [nodeOpen, setNodeOpen] = useState(false);
+  const [nodeStatus, setNodeStatus] = useState<"demo" | "connecting" | "connected" | "error">("demo");
+  const [nodeConfig, setNodeConfig] = useState<NodeConfig>({ endpoint: "http://127.0.0.1:3030", token: "" });
+  const [nodeError, setNodeError] = useState("");
+  const [syncing, setSyncing] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -128,8 +126,26 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem("orbit-torrents", JSON.stringify(torrents));
-  }, [torrents]);
+    if (nodeStatus === "demo") window.localStorage.setItem("orbit-torrents", JSON.stringify(torrents));
+  }, [nodeStatus, torrents]);
+
+  useEffect(() => {
+    const savedNode = window.localStorage.getItem("orbit-node");
+    if (!savedNode) return;
+    try {
+      const config = JSON.parse(savedNode) as NodeConfig;
+      setNodeConfig(config);
+      void connectNode(config, true);
+    } catch {
+      window.localStorage.removeItem("orbit-node");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (nodeStatus !== "connected") return;
+    const interval = window.setInterval(() => void syncFromNode(nodeConfig, true), 5000);
+    return () => window.clearInterval(interval);
+  }, [nodeStatus, nodeConfig.endpoint, nodeConfig.token]);
 
   const selected = torrents.find((torrent) => torrent.id === selectedId) ?? torrents[0];
   const visible = useMemo(
@@ -151,35 +167,110 @@ export default function Home() {
     window.setTimeout(() => setToast(""), 2400);
   }
 
-  function toggleTorrent(id: number) {
-    setTorrents((current) =>
-      current.map((torrent) =>
-        torrent.id === id
-          ? {
-              ...torrent,
-              status: torrent.status === "paused" ? "downloading" : "paused",
-              down: torrent.status === "paused" ? "4.6 MB/s" : "—",
-              eta: torrent.status === "paused" ? "18 min" : "Paused",
-            }
-          : torrent,
-      ),
-    );
-    flash(selected?.status === "paused" ? "Transfer resumed" : "Transfer paused");
+  async function syncFromNode(config = nodeConfig, quiet = false) {
+    if (!quiet) setSyncing(true);
+    try {
+      const liveTorrents = await listNodeTorrents(config);
+      setTorrents(liveTorrents);
+      setNodeStatus("connected");
+      setNodeError("");
+      if (liveTorrents.length && !liveTorrents.some((torrent) => torrent.id === selectedId)) setSelectedId(liveTorrents[0].id);
+    } catch (error) {
+      setNodeStatus("error");
+      setNodeError(error instanceof Error ? error.message : "Could not sync the node.");
+    } finally {
+      setSyncing(false);
+    }
   }
 
-  function removeTorrent(id: number) {
+  async function connectNode(config = nodeConfig, quiet = false) {
+    setNodeStatus("connecting");
+    setNodeError("");
+    try {
+      await testNode(config);
+      window.localStorage.setItem("orbit-node", JSON.stringify(config));
+      setNodeConfig(config);
+      await syncFromNode(config, quiet);
+      setNodeOpen(false);
+      if (!quiet) flash("rqbit node connected");
+    } catch (error) {
+      setNodeStatus("error");
+      setNodeError(error instanceof Error ? error.message : "Could not connect to the node.");
+    }
+  }
+
+  function disconnectNode() {
+    window.localStorage.removeItem("orbit-node");
+    setNodeStatus("demo");
+    setNodeError("");
+    const saved = window.localStorage.getItem("orbit-torrents");
+    setTorrents(saved ? JSON.parse(saved) : starterTorrents);
+    setSelectedId(1);
+    setNodeOpen(false);
+    flash("Switched to demo mode");
+  }
+
+  async function toggleTorrent(id: number) {
     const target = torrents.find((torrent) => torrent.id === id);
+    if (!target) return;
+    if (target.source === "node" && target.engineId) {
+      try {
+        await runNodeAction(nodeConfig, target.engineId, target.status === "paused" ? "start" : "pause");
+        await syncFromNode(nodeConfig, true);
+        flash(target.status === "paused" ? "Transfer resumed" : "Transfer paused");
+      } catch (error) {
+        flash(error instanceof Error ? error.message : "Node action failed");
+      }
+      return;
+    }
+    setTorrents((current) => current.map((torrent) => torrent.id === id ? {
+      ...torrent,
+      status: torrent.status === "paused" ? "downloading" : "paused",
+      down: torrent.status === "paused" ? "4.6 MB/s" : "—",
+      eta: torrent.status === "paused" ? "18 min" : "Paused",
+    } : torrent));
+    flash(target.status === "paused" ? "Transfer resumed" : "Transfer paused");
+  }
+
+  async function removeTorrent(id: number) {
+    const target = torrents.find((torrent) => torrent.id === id);
+    if (!target) return;
+    if (target.source === "node" && target.engineId) {
+      try {
+        await runNodeAction(nodeConfig, target.engineId, "forget");
+        await syncFromNode(nodeConfig, true);
+        flash(`${target.name} removed; files kept`);
+      } catch (error) {
+        flash(error instanceof Error ? error.message : "Node action failed");
+      }
+      return;
+    }
     setTorrents((current) => current.filter((torrent) => torrent.id !== id));
     const next = torrents.find((torrent) => torrent.id !== id);
     if (next) setSelectedId(next.id);
-    flash(`${target?.name ?? "Transfer"} removed`);
+    flash(`${target.name} removed`);
   }
 
-  function addTorrent(name?: string) {
+  async function addTorrent(name?: string) {
+    if (nodeStatus === "connected") {
+      if (!magnet.trim()) return;
+      try {
+        await addMagnetToNode(nodeConfig, magnet.trim());
+        await syncFromNode(nodeConfig, true);
+        setAddOpen(false);
+        setMagnet("");
+        setNewName("");
+        flash("Torrent added to the live node");
+      } catch (error) {
+        flash(error instanceof Error ? error.message : "Could not add the torrent");
+      }
+      return;
+    }
     const cleanedName = name || newName.trim() || "New magnet transfer";
     const nextId = Math.max(0, ...torrents.map((torrent) => torrent.id)) + 1;
-    const nextTorrent: Torrent = {
+    const nextTorrent: OrbitTorrent = {
       id: nextId,
+      source: "demo",
       name: cleanedName.replace(/\.torrent$/i, ""),
       meta: "New transfer · Metadata pending",
       size: "Calculating",
@@ -199,9 +290,23 @@ export default function Home() {
     setAddOpen(false);
     setMagnet("");
     setNewName("");
-    flash("Torrent added to Orbit");
+    flash("Demo transfer added");
   }
 
+  async function addTorrentFile(file: File) {
+    if (nodeStatus !== "connected") {
+      await addTorrent(file.name);
+      return;
+    }
+    try {
+      await addTorrentFileToNode(nodeConfig, file);
+      await syncFromNode(nodeConfig, true);
+      setAddOpen(false);
+      flash("Torrent file added to the live node");
+    } catch (error) {
+      flash(error instanceof Error ? error.message : "Could not add the torrent file");
+    }
+  }
   function chooseFilter(nextFilter: "all" | TorrentStatus) {
     setFilter(nextFilter);
   }
@@ -235,13 +340,13 @@ export default function Home() {
           <button><span className="label-dot green" /> Work</button>
         </nav>
 
-        <div className="node-card">
-          <div className="node-heading"><span className="pulse-dot" /> HOME NODE</div>
-          <strong>Living room Mac</strong>
-          <small>Encrypted · Connected</small>
-          <div className="node-meter"><i /></div>
-          <div className="node-storage"><span>Storage</span><b>612 GB free</b></div>
-        </div>
+        <button className={`node-card ${nodeStatus}`} onClick={() => setNodeOpen(true)}>
+          <div className="node-heading"><span className={`pulse-dot ${nodeStatus === "connected" ? "" : "offline"}`} /> TORRENT NODE</div>
+          <strong>{nodeStatus === "connected" ? "rqbit node" : "Connect a node"}</strong>
+          <small>{nodeStatus === "connected" ? "Live queue · Synced" : nodeStatus === "error" ? "Connection needs attention" : "Run real transfers here"}</small>
+          <div className="node-meter"><i style={{ width: nodeStatus === "connected" ? "100%" : "18%" }} /></div>
+          <div className="node-storage"><span>Mode</span><b>{nodeStatus === "connected" ? "Live engine" : "Demo data"}</b></div>
+        </button>
 
         <div className="profile">
           <span>BK</span>
@@ -260,7 +365,7 @@ export default function Home() {
           </label>
           <div className="top-actions">
             <button className="icon-button" aria-label="Open activity">◔</button>
-            <button className="add-button" onClick={() => setAddOpen(true)}><span>＋</span> Add torrent</button>
+            <button className="add-button" onClick={() => setAddOpen(true)}><span>＋</span> {nodeStatus === "connected" ? "Add to node" : "Add torrent"}</button>
           </div>
         </header>
 
@@ -272,10 +377,10 @@ export default function Home() {
                 <h1>Good evening, Brian.</h1>
                 <h2>Your queue is moving smoothly.</h2>
               </div>
-              <div className="global-control">
-                <span className="live-light" />
-                <div><strong>Orbit is online</strong><small>Port 51413 · Direct</small></div>
-              </div>
+              <button className={`global-control ${nodeStatus}`} onClick={() => nodeStatus === "connected" ? void syncFromNode() : setNodeOpen(true)}>
+                <span className={`live-light ${nodeStatus === "connected" ? "" : "offline"}`} />
+                <div><strong>{nodeStatus === "connected" ? "Live node connected" : "Orbit demo mode"}</strong><small>{syncing ? "Syncing now…" : nodeStatus === "connected" ? nodeConfig.endpoint : "Connect rqbit to enable downloads"}</small></div>
+              </button>
             </div>
 
             <section className="stats-grid" aria-label="Transfer statistics">
@@ -357,7 +462,7 @@ export default function Home() {
               </div>
               <div className="detail-rule" />
               <dl className="path-list">
-                <div><dt>Save to</dt><dd>Orbit / Downloads</dd></div>
+                <div><dt>Save to</dt><dd>{selected.outputFolder || "Orbit / Downloads"}</dd></div>
                 <div><dt>Info hash</dt><dd>{selected.hash}</dd></div>
               </dl>
               <button className="outline-button" onClick={() => toggleTorrent(selected.id)}>{selected.status === "paused" ? "Resume transfer" : "Pause transfer"}</button>
@@ -370,7 +475,7 @@ export default function Home() {
         <button className="active"><span>⌁</span>Transfers</button>
         <button><span>◉</span>Activity</button>
         <button className="mobile-add" onClick={() => setAddOpen(true)} aria-label="Add torrent">＋</button>
-        <button><span>⌂</span>Node</button>
+        <button onClick={() => setNodeOpen(true)}><span>⌂</span>Node</button>
         <button><span>⚙</span>Settings</button>
       </nav>
 
@@ -380,17 +485,38 @@ export default function Home() {
             <button className="modal-close" onClick={() => setAddOpen(false)} aria-label="Close add torrent dialog">×</button>
             <span className="modal-mark">↙</span>
             <p>NEW TRANSFER</p>
-            <h2 id="add-title">Bring something into Orbit.</h2>
+            <h2 id="add-title">{nodeStatus === "connected" ? "Send it to your node." : "Bring something into Orbit."}</h2>
             <label>Name <span>OPTIONAL</span><input value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="Give this transfer a name" /></label>
             <label>Magnet link <textarea value={magnet} onChange={(event) => setMagnet(event.target.value)} placeholder="magnet:?xt=urn:btih:…" rows={3} /></label>
             <div className="or-divider"><span>OR</span></div>
-            <input ref={fileInput} type="file" accept=".torrent,application/x-bittorrent" hidden onChange={(event) => event.target.files?.[0] && addTorrent(event.target.files[0].name)} />
+            <input ref={fileInput} type="file" accept=".torrent,application/x-bittorrent" hidden onChange={(event) => event.target.files?.[0] && void addTorrentFile(event.target.files[0])} />
             <button className="file-drop" onClick={() => fileInput.current?.click()}><span>⇧</span><strong>Choose a .torrent file</strong><small>or drop one here</small></button>
-            <div className="modal-actions"><button onClick={() => setAddOpen(false)}>Cancel</button><button className="primary" disabled={!magnet.trim()} onClick={() => addTorrent()}>Add to Orbit</button></div>
+            <div className="modal-actions"><button onClick={() => setAddOpen(false)}>Cancel</button><button className="primary" disabled={!magnet.trim()} onClick={() => void addTorrent()}>{nodeStatus === "connected" ? "Add to live node" : "Add demo transfer"}</button></div>
           </section>
         </div>
       )}
 
+
+      {nodeOpen && (
+        <div className="modal-backdrop" onMouseDown={() => setNodeOpen(false)}>
+          <section className="add-modal node-modal" role="dialog" aria-modal="true" aria-labelledby="node-title" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="modal-close" onClick={() => setNodeOpen(false)} aria-label="Close node dialog">×</button>
+            <span className="modal-mark node-mark">⌁</span>
+            <p>TORRENT ENGINE</p>
+            <h2 id="node-title">Connect your download node.</h2>
+            <p className="node-intro">Orbit speaks the rqbit HTTP API. Keep rqbit running on a device that stores your files, then connect to its address.</p>
+            <label>Node address<input value={nodeConfig.endpoint} onChange={(event) => setNodeConfig((current) => ({ ...current, endpoint: event.target.value }))} placeholder="http://127.0.0.1:3030" /></label>
+            <label>Access token <span>OPTIONAL</span><input type="password" value={nodeConfig.token} onChange={(event) => setNodeConfig((current) => ({ ...current, token: event.target.value }))} placeholder="Bearer token for a secured proxy" /></label>
+            {nodeError && <div className="node-error"><span>!</span>{nodeError}</div>}
+            <div className="node-guide"><strong>Start a local node</strong><code>rqbit server start ~/Downloads</code><small>Only connect nodes you control. Remote nodes should sit behind HTTPS and authentication.</small></div>
+            <div className="modal-actions node-actions">
+              {nodeStatus === "connected" && <button className="disconnect" onClick={disconnectNode}>Use demo mode</button>}
+              <button onClick={() => setNodeOpen(false)}>Cancel</button>
+              <button className="primary" disabled={!nodeConfig.endpoint.trim() || nodeStatus === "connecting"} onClick={() => void connectNode()}>{nodeStatus === "connecting" ? "Connecting…" : "Connect node"}</button>
+            </div>
+          </section>
+        </div>
+      )}
       {toast && <div className="toast"><span>✓</span>{toast}</div>}
     </main>
   );
