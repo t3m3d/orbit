@@ -40,3 +40,7 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+
+# local tooling
+/.pnpm-store/
+dev-server*.log

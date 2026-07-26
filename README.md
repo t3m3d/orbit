@@ -1,98 +1,42 @@
-# vinext-starter
+# Orbit
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+Orbit is the working title for a universal torrent-management app: one responsive interface for desktop, tablet, mobile, and the web.
 
-## Prerequisites
+## What exists now
 
-- Node.js `>=22.13.0`
+- responsive transfer dashboard with desktop and mobile navigation
+- searchable and filterable torrent library
+- magnet-link and `.torrent` file intake UI
+- pause, resume, select, and remove interactions
+- device-local queue persistence
+- installable web-app manifest and offline shell
+- social sharing metadata and artwork
 
-## Quick Start
+The current queue is a product-quality interactive front-end prototype. It does **not** yet download torrent payloads.
+
+## Cross-platform architecture
+
+A browser cannot safely reach the full BitTorrent network because standard peers use TCP/uTP while browser networking is restricted. The production architecture should keep this interface shared and move torrent traffic into a small local engine:
+
+1. **Shared UI** — this Next/Vinext app runs as a PWA and inside native shells.
+2. **Torrent engine** — a Rust service based on a cross-platform BitTorrent library handles magnets, metadata, pieces, peer discovery, and disk access.
+3. **Native packaging** — Tauri packages the UI and engine for Windows, macOS, Linux, iOS, and Android.
+4. **Web access** — the hosted PWA connects over an encrypted, authenticated channel to the user's paired home node.
+5. **Local-first state** — transfers and files stay on the user's device unless they explicitly pair another device.
+
+This avoids a limited WebRTC-only torrent client and gives every platform the same queue and controls.
+
+## Development
+
+Requirements: Node.js 22.13+ and pnpm 11.
 
 ```bash
-npm install
-npm run dev
-npm run build
+pnpm install
+pnpm dev
+pnpm build
+pnpm test
 ```
 
-This starter does not use `wrangler.jsonc`.
+The working title is intentionally isolated to `app/page.tsx`, `app/layout.tsx`, `package.json`, `public/manifest.webmanifest`, and this README so it can be changed cleanly later.
 
-## Included Shape
-
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
-```
-
-## Optional Dispatch-Owned ChatGPT Sign-In
-
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
-
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
-
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
-
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
-
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
-
-## Useful Commands
-
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
-
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+Use torrents only for content you are authorized to download and share.

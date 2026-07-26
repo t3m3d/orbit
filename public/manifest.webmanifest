@@ -1,0 +1,11 @@
+{
+  "name": "Orbit — Universal Torrent Hub",
+  "short_name": "Orbit",
+  "description": "Manage your torrent queue across desktop, mobile, and the web.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f3ed",
+  "theme_color": "#191919",
+  "orientation": "any",
+  "categories": ["utilities", "productivity"]
+}
