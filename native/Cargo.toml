@@ -1,0 +1,25 @@
+[package]
+name = "orbit-native"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+anyhow = "1.0"
+dirs = "6.0"
+eframe = { version = "0.35.0", default-features = false, features = ["accesskit", "default_fonts", "glow"] }
+librqbit = { version = "8.1.1", default-features = false, features = ["default-tls", "disable-upload"] }
+rfd = { version = "0.17.2", default-features = false }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.10.9"
+tokio = { version = "1.48", features = ["rt-multi-thread", "time"] }
+tray-icon = { version = "0.24.1", default-features = false }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Storage_FileSystem"] }
+
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 1

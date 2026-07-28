@@ -44,3 +44,8 @@ next-env.d.ts
 # local tooling
 /.pnpm-store/
 dev-server*.log
+
+# native Rust build artifacts
+/native/target/
+/native/*.log
+
