@@ -50,12 +50,14 @@ impl StartupNetworkPolicy {
         match self {
             Self::AskEveryStart => "Ask every time Orbit starts",
             Self::RememberChoice => "Keep this choice until I change it",
-            Self::FollowSystem => "Follow the current Windows network",
+            Self::FollowSystem => "Follow the current network",
         }
     }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+// Only Windows exposes the public/private/metered categories used by these mappings.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub enum SystemNetworkProfile {
     Disconnected,
     Metered,

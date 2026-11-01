@@ -1,5 +1,6 @@
 use crate::settings::SystemNetworkProfile;
 
+#[cfg(any(windows, test))]
 fn parse_profile_probe(output: &str) -> SystemNetworkProfile {
     match output.trim().lines().last().unwrap_or_default().trim() {
         "disconnected" => SystemNetworkProfile::Disconnected,

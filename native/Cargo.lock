@@ -3126,6 +3126,7 @@ dependencies = [
  "anyhow",
  "dirs",
  "eframe",
+ "libc",
  "librqbit",
  "rfd",
  "serde",

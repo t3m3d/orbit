@@ -33,7 +33,7 @@ impl OrbitTray {
         let status = MenuItem::with_id("orbit.tray.status", "No active transfers", false, None);
         let pause_all = MenuItem::with_id("orbit.tray.pause-all", "Pause all", true, None);
         let resume_all = MenuItem::with_id("orbit.tray.resume-all", "Resume all", true, None);
-        let quit = MenuItem::with_id("orbit.tray.quit", "Exit Orbit", true, None);
+        let quit = MenuItem::with_id("orbit.tray.quit", "Quit Orbit", true, None);
 
         let menu = Menu::with_items(&[&show, &status, &pause_all, &resume_all, &quit])?;
         let icon =
@@ -42,7 +42,7 @@ impl OrbitTray {
             .with_icon(icon)
             .with_tooltip("Orbit")
             .with_menu(Box::new(menu))
-            .with_menu_on_left_click(false)
+            .with_menu_on_left_click(cfg!(target_os = "macos"))
             .build()?;
 
         Ok(Self {

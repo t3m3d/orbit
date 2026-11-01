@@ -30,3 +30,21 @@ fn only_supported_transfer_sources_are_accepted() {
     assert!(!is_supported_source(r"C:\Downloads\payload.exe"));
     assert!(!is_supported_source("ftp://example.test/file.torrent"));
 }
+
+#[cfg(unix)]
+#[test]
+fn destination_preflight_checks_volume_space_for_new_folders() {
+    let path = std::env::temp_dir()
+        .join(format!("orbit-new-destination-{}", std::process::id()))
+        .join("nested");
+    let available = storage_preflight(&path.to_string_lossy(), 0)
+        .expect("existing parent volume can be checked")
+        .expect("Unix reports disk space");
+    assert!(available > 0);
+    assert!(
+        storage_preflight(&path.to_string_lossy(), u64::MAX)
+            .expect_err("oversized download must fail")
+            .starts_with("Not enough free space:")
+    );
+    assert!(!path.exists(), "preflight must not create folders");
+}

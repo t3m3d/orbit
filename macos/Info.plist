@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleName</key><string>Orbit</string>
+  <key>CFBundleDisplayName</key><string>Orbit Torrent Manager</string>
+  <key>CFBundleExecutable</key><string>Orbit</string>
+  <key>CFBundleIdentifier</key><string>org.krypton-lang.orbit</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleVersion</key><string>0.1.0</string>
+  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>CFBundleIconFile</key><string>Orbit</string>
+  <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>CFBundleSupportedPlatforms</key><array><string>MacOSX</string></array>
+  <key>CFBundleURLTypes</key><array><dict>
+    <key>CFBundleURLName</key><string>BitTorrent magnet link</string>
+    <key>CFBundleURLSchemes</key><array><string>magnet</string></array>
+    <key>CFBundleTypeRole</key><string>Viewer</string>
+  </dict></array>
+  <key>CFBundleDocumentTypes</key><array><dict>
+    <key>CFBundleTypeName</key><string>BitTorrent metadata</string>
+    <key>CFBundleTypeRole</key><string>Viewer</string>
+    <key>LSHandlerRank</key><string>Alternate</string>
+    <key>LSItemContentTypes</key><array><string>org.bittorrent.torrent</string></array>
+  </dict></array>
+  <key>UTImportedTypeDeclarations</key><array><dict>
+    <key>UTTypeIdentifier</key><string>org.bittorrent.torrent</string>
+    <key>UTTypeDescription</key><string>BitTorrent metadata</string>
+    <key>UTTypeConformsTo</key><array><string>public.data</string></array>
+    <key>UTTypeTagSpecification</key><dict>
+      <key>public.filename-extension</key><array><string>torrent</string></array>
+      <key>public.mime-type</key><string>application/x-bittorrent</string>
+    </dict>
+  </dict></array>
+</dict></plist>

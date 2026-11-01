@@ -1,3 +1,4 @@
+#[path = "engine/completion.rs"]
 mod completion;
 
 use std::{
@@ -23,7 +24,7 @@ use crate::settings::{
     save_policies,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct TorrentFileRow {
     pub index: usize,
     pub name: String,
@@ -32,7 +33,7 @@ pub struct TorrentFileRow {
     pub downloaded: u64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct TorrentRow {
     pub id: usize,
     pub info_hash: String,
@@ -60,7 +61,7 @@ pub struct TorrentRow {
     pub policy: TransferPolicy,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct PreviewFile {
     pub index: usize,
     pub name: String,
@@ -68,7 +69,7 @@ pub struct PreviewFile {
     pub selected: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct AddDraft {
     pub source: String,
     pub info_hash: String,
@@ -86,7 +87,7 @@ pub struct AddDraft {
     pub tag: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct AddRequest {
     pub source: String,
     pub info_hash: String,
@@ -852,6 +853,7 @@ pub fn start_engine(
                 while let Ok(command) = command_rx.try_recv() {
                     match command {
                         EngineCommand::Shutdown => {
+                            session.stop().await;
                             emit(&event_tx, &repaint, EngineEvent::Stopped);
                             return;
                         }

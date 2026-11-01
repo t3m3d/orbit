@@ -5,6 +5,7 @@ mod network_profile;
 mod settings;
 #[cfg(test)]
 mod settings_tests;
+mod storage;
 mod tray;
 #[cfg(test)]
 mod ui_tests;
@@ -32,6 +33,7 @@ use settings::{
     AppSettings, NetworkMode, SharePolicy, StartupNetworkPolicy, SystemNetworkProfile,
     TransferPolicy, data_dir, default_download_dir, load_settings, save_settings,
 };
+use storage::{format_bytes, storage_preflight};
 use tray::{OrbitTray, TrayAction};
 
 const KRYPTON_BG: Color32 = Color32::from_rgb(22, 16, 31);
@@ -264,81 +266,6 @@ fn start_activation_listener(
     });
 }
 
-fn format_bytes(bytes: u64) -> String {
-    const UNITS: [&str; 5] = ["B", "KiB", "MiB", "GiB", "TiB"];
-    if bytes == 0 {
-        return "0 B".to_owned();
-    }
-    let unit = ((bytes as f64).log(1024.0).floor() as usize).min(UNITS.len() - 1);
-    let value = bytes as f64 / 1024_f64.powi(unit as i32);
-    if value >= 10.0 || unit == 0 {
-        format!("{value:.0} {}", UNITS[unit])
-    } else {
-        format!("{value:.1} {}", UNITS[unit])
-    }
-}
-
-#[cfg(windows)]
-fn available_disk_space(path: &Path) -> Result<Option<u64>, String> {
-    use std::os::windows::ffi::OsStrExt;
-    use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
-
-    let probe = path
-        .ancestors()
-        .find(|candidate| candidate.exists())
-        .ok_or_else(|| "The destination drive or parent folder does not exist.".to_owned())?;
-    let mut wide = probe.as_os_str().encode_wide().collect::<Vec<_>>();
-    wide.push(0);
-    let mut available = 0_u64;
-    let success = unsafe {
-        GetDiskFreeSpaceExW(
-            wide.as_ptr(),
-            &mut available,
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-        )
-    };
-    if success == 0 {
-        Err(format!(
-            "Could not read free space for {}: {}",
-            probe.display(),
-            std::io::Error::last_os_error()
-        ))
-    } else {
-        Ok(Some(available))
-    }
-}
-
-#[cfg(not(windows))]
-fn available_disk_space(_path: &Path) -> Result<Option<u64>, String> {
-    Ok(None)
-}
-
-fn storage_preflight(destination: &str, required: u64) -> Result<Option<u64>, String> {
-    let destination = destination.trim();
-    if destination.is_empty() {
-        return Err("Choose a destination folder.".to_owned());
-    }
-    let path = Path::new(destination);
-    if !path.is_absolute() {
-        return Err("The destination must be an absolute path.".to_owned());
-    }
-    if path.exists() && !path.is_dir() {
-        return Err("The destination points to a file, not a folder.".to_owned());
-    }
-
-    let available = available_disk_space(path)?;
-    if available.is_some_and(|available| required > available) {
-        Err(format!(
-            "Not enough free space: {} required, {} available.",
-            format_bytes(required),
-            format_bytes(available.unwrap_or_default())
-        ))
-    } else {
-        Ok(available)
-    }
-}
-
 fn is_paused(torrent: &TorrentRow) -> bool {
     torrent.state.eq_ignore_ascii_case("paused")
 }
@@ -348,10 +275,17 @@ fn is_active_transfer(torrent: &TorrentRow) -> bool {
 }
 
 fn open_folder(path: &str) -> anyhow::Result<()> {
-    Command::new("explorer.exe").arg(path).spawn()?;
+    #[cfg(windows)]
+    let program = "explorer.exe";
+    #[cfg(target_os = "macos")]
+    let program = "/usr/bin/open";
+    #[cfg(not(any(windows, target_os = "macos")))]
+    let program = "xdg-open";
+    Command::new(program).arg(path).spawn()?;
     Ok(())
 }
 
+#[cfg(windows)]
 fn open_default_apps() -> anyhow::Result<()> {
     Command::new("explorer.exe")
         .arg("ms-settings:defaultapps?registeredAppUser=Orbit")
@@ -2360,7 +2294,7 @@ impl OrbitApp {
                         .show(ui, |ui| {
                             ui.label(
                                 RichText::new(format!(
-                                    "Current Windows profile: {}",
+                                    "Current network profile: {}",
                                     self.system_network_profile.label()
                                 ))
                                 .strong()
@@ -2559,7 +2493,7 @@ impl OrbitApp {
                         .color(TEXT_TERTIARY),
                 );
                 ui.separator();
-                ui.heading(RichText::new("Windows & automation").size(16.0));
+                ui.heading(RichText::new("Desktop & automation").size(16.0));
                 ui.checkbox(
                     &mut self.settings_editor.close_to_tray,
                     "Allow transfers to continue after closing the window (keep Orbit in tray)",
@@ -2595,6 +2529,7 @@ impl OrbitApp {
                     }
                 });
                 ui.horizontal(|ui| {
+                    #[cfg(windows)]
                     if ui.button("Windows default-app settings").clicked()
                         && let Err(error) = open_default_apps()
                     {
@@ -2713,6 +2648,11 @@ impl OrbitApp {
 impl eframe::App for OrbitApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        #[cfg(target_os = "macos")]
+        if ctx.input_mut(|input| input.consume_key(egui::Modifiers::COMMAND, egui::Key::Q)) {
+            self.quitting = true;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
         self.drain_events(&ctx);
         self.handle_tray(&ctx);
         self.update_tray_status();
@@ -2721,6 +2661,7 @@ impl eframe::App for OrbitApp {
 
         if ctx.input(|input| input.viewport().close_requested())
             && self.settings.close_to_tray
+            && self.tray.is_some()
             && !self.quitting
         {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
