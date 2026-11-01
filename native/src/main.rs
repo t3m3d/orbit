@@ -434,12 +434,11 @@ impl OrbitApp {
                     PathBuf::from(configured)
                 }
             });
-        let (command_tx, event_rx) = start_engine(
-            download_dir.clone(),
-            data_dir(),
-            settings.clone(),
-            cc.egui_ctx.clone(),
-        );
+        let (command_tx, event_rx) =
+            start_engine(download_dir.clone(), data_dir(), settings.clone(), {
+                let context = cc.egui_ctx.clone();
+                Arc::new(move || context.request_repaint())
+            });
         let command_router = Arc::new(Mutex::new(command_tx.clone()));
         if let Some(listener) = activation_listener {
             start_activation_listener(listener, command_router.clone(), cc.egui_ctx.clone());
@@ -549,7 +548,10 @@ impl OrbitApp {
             download_dir.clone(),
             data_dir(),
             runtime_settings.clone(),
-            ctx.clone(),
+            {
+                let context = ctx.clone();
+                Arc::new(move || context.request_repaint())
+            },
         );
         let mut router = self
             .command_router

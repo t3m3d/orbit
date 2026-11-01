@@ -4,12 +4,11 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use eframe::egui;
 use librqbit::{Api, api::TorrentIdOrHash};
 
 use crate::settings::{SharePolicy, TransferPolicyStore};
 
-use super::{EngineEvent, TorrentRow, emit, is_paused, torrent_source_sha256};
+use super::{EngineEvent, Repaint, TorrentRow, emit, is_paused, torrent_source_sha256};
 
 fn unix_now() -> u64 {
     SystemTime::now()
@@ -46,7 +45,7 @@ pub(super) async fn apply_completion_policies(
     rows: &[TorrentRow],
     policies: &mut TransferPolicyStore,
     event_tx: &std::sync::mpsc::Sender<EngineEvent>,
-    repaint: &egui::Context,
+    repaint: &Repaint,
 ) -> bool {
     let mut changed = false;
     let now = unix_now();

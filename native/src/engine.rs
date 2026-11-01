@@ -11,7 +11,8 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
-use eframe::egui;
+/// UI-independent wake-up callback. The private bridge uses a no-op.
+pub type Repaint = std::sync::Arc<dyn Fn() + Send + Sync>;
 use librqbit::{
     AddTorrent, AddTorrentOptions, Api, Session, SessionOptions, SessionPersistenceConfig,
     api::{ApiTorrentListOpts, TorrentIdOrHash},
@@ -154,9 +155,9 @@ pub enum EngineCommand {
     Shutdown,
 }
 
-fn emit(event_tx: &Sender<EngineEvent>, repaint: &egui::Context, event: EngineEvent) {
+fn emit(event_tx: &Sender<EngineEvent>, repaint: &Repaint, event: EngineEvent) {
     let _ = event_tx.send(event);
-    repaint.request_repaint();
+    repaint();
 }
 
 fn limit_from_kib(kib: u32) -> Option<NonZeroU32> {
@@ -695,7 +696,7 @@ pub fn start_engine(
     download_dir: PathBuf,
     app_data_dir: PathBuf,
     settings: AppSettings,
-    repaint: egui::Context,
+    repaint: Repaint,
 ) -> (Sender<EngineCommand>, Receiver<EngineEvent>) {
     let (command_tx, command_rx) = mpsc::channel::<EngineCommand>();
     let (event_tx, event_rx) = mpsc::channel::<EngineEvent>();

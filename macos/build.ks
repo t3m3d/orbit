@@ -31,7 +31,7 @@ just run {
     let profile = "release"
     let releaseFlag = " --release"
     if arg("0") == "--debug" { profile = "debug" releaseFlag = "" }
-    checked("cargo build --locked --manifest-path " + quote(root + "/native/Cargo.toml") + releaseFlag + " --bin orbit-engine")
+    checked("cargo build --locked --no-default-features --manifest-path " + quote(root + "/native/Cargo.toml") + releaseFlag + " --bin orbit-engine")
     checked("mkdir -p " + quote(root + "/native/target"))
     let stage = sh("mktemp -d " + quote(root + "/native/target/macos-build.XXXXXX"))
     if stage == "" { kp("Could not create staging directory") exit(1) }

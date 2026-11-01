@@ -1,6 +1,18 @@
 # Orbit
 
-Orbit is a local-first native BitTorrent client with the Krypton/Cortex visual theme. The working application is in [`native/`](native/) and uses an embedded `librqbit` engine—there is no server account, hosted backend, or required website.
+Orbit is a local-first native BitTorrent client with the Krypton/Cortex visual theme. The macOS frontend is written in **KryptScript / Objective-K** in [`macos/`](macos/), backed by the existing Rust `librqbit` engine in [`native/`](native/). The Rust frontend remains available for Windows. There is no server account, hosted backend, or required website.
+
+For Apple Silicon builds, supported Mac workflows, and verification, see [`macos/README.md`](macos/README.md). The feature list below describes the original Rust frontend; the Mac document records the current differences.
+
+## Source layout
+
+- `macos/` — KryptScript / Objective-K frontend and app-bundle builder.
+- `native/src/engine.rs`, `native/src/engine/`, `native/src/settings.rs`, and `native/src/storage.rs` — shared Rust torrent core, persistence, and storage checks.
+- `native/src/bin/orbit-engine.rs` — private process bridge used by the Mac app.
+- `native/src/main.rs`, `native/src/tray.rs`, and `native/src/network_profile.rs` — original Rust desktop frontend and Windows integration.
+- `native/tests/bridge.rs` — Rust integration tests with a localhost tracker and peer.
+
+The retired React/TypeScript website, Cloudflare/database scaffolding, Node toolchain, and Python test harness have been removed. No Node or Python installation is needed to build or test Orbit. macOS users run the bundled native app without installing Rust or Krypton. Windows PowerShell registration and OS resource/package manifests remain because they provide platform integration.
 
 ## Current native features
 
@@ -41,7 +53,7 @@ Store packaging groundwork and remaining release gates are documented in [`nativ
 
 ## Build locally
 
-Requirements: a current Rust toolchain and the Windows 10/11 SDK.
+Windows requirements: a current Rust toolchain and the Windows 10/11 SDK. For macOS, follow [`macos/README.md`](macos/README.md).
 
 ```powershell
 cd native

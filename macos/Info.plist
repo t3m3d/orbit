@@ -33,4 +33,6 @@
       <key>public.mime-type</key><string>application/x-bittorrent</string>
     </dict>
   </dict></array>
+  <key>NSQuitAlwaysKeepsWindows</key><false/>
+  <key>NSSupportsSuddenTermination</key><false/>
 </dict></plist>

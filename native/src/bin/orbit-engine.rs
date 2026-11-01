@@ -131,7 +131,7 @@ fn main() -> Result<()> {
         torrents: vec![],
         preview: None,
     };
-    let context = eframe::egui::Context::default();
+    let context: engine::Repaint = std::sync::Arc::new(|| {});
     let (mut tx, mut rx) = engine::start_engine(
         PathBuf::from(&state.settings.default_download_dir),
         settings::data_dir(),
