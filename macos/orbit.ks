@@ -141,9 +141,10 @@ func layout() {
     if width == cocoaNumberVal(get("lastwidth")) && height == cocoaNumberVal(get("lastheight")) { emit 0 }
     put("lastwidth", cocoaNumber(width))
     put("lastheight", cocoaNumber(height))
-    cocoaSetFrame(get("titlelabel"), 24, height - 54, 160, 34)
-    cocoaSetFrame(get("subtitle"), 190, height - 49, 500, 24)
-    cocoaSetFrame(get("status"), 24, height - 86, width - 50, 26)
+    cocoaSetFrame(get("headericon"), 24, height - 52, 30, 30)
+    cocoaSetFrame(get("titlelabel"), 62, height - 54, 120, 34)
+    cocoaSetFrame(get("subtitle"), 190, height - 49, 410, 24)
+    cocoaSetFrame(get("status"), 620, height - 49, width - 644, 24)
     cocoaSetFrame(get("addlink"), 24, height - 134, 160, 30)
     cocoaSetFrame(get("opentorrent"), 196, height - 134, 170, 30)
     cocoaSetFrame(get("browser"), 378, height - 134, 260, 30)
@@ -162,6 +163,20 @@ func labelH(win, title, x, y, w, h) {
     let v = cocoaPlainLabel(win, title, x, y, w, h)
     cocoaSetTextColor(v, cocoaRGB(242, 234, 255))
     emit v
+}
+// The app icon as a header badge: same artwork as the Dock icon.
+func headerIcon(win, x, y, size) {
+    let view = msg_frame(msg(cls("NSImageView"), "alloc"), "initWithFrame:", x, y, size, size)
+    let path = msg_2(msg(cls("NSBundle"), "mainBundle"), "pathForResource:ofType:", nsString("orbit-icon"), nsString("png"))
+    if path == 0 { kp("header icon: orbit-icon.png missing from Resources") }
+    if path != 0 {
+        let img = msg_1(msg(cls("NSImage"), "alloc"), "initWithContentsOfFile:", path)
+        if img == 0 { kp("header icon: orbit-icon.png could not be decoded") }
+        if img != 0 { msg_1(view, "setImage:", img) }
+    }
+    msg_d1(view, "setImageScaling:", 3)
+    msg_1(msg(win, "contentView"), "addSubview:", view)
+    emit view
 }
 func buttonH(win, title, x, y, w) {
     let b = cocoaButton(win, title, x, y, w, 30)
@@ -715,9 +730,10 @@ just run {
     let filesDelegate = cocoaNew(filesClass)
     msg_1(win, "setDelegate:", delegate)
     msg_1(app, "setDelegate:", delegate)
-    put("titlelabel", labelH(win, "ORBIT", 24, 746, 160, 34))
-    put("subtitle", labelH(win, "Local transfers. Native Krypton.", 190, 751, 500, 24))
-    put("status", labelH(win, "Starting…", 24, 714, 1070, 26))
+    put("headericon", headerIcon(win, 24, 748, 30))
+    put("titlelabel", labelH(win, "ORBIT", 62, 746, 120, 34))
+    put("subtitle", labelH(win, "Local transfers. Native Krypton.", 190, 751, 410, 24))
+    put("status", labelH(win, "Starting…", 620, 751, 470, 24))
     cocoaSetTextColor(get("status"), cocoaRGB(183, 255, 60))
     // Paste field belongs to the Add Link dialog, never the main window.
     put("source", msg_frame(msg(cls("NSTextField"), "alloc"), "initWithFrame:", 0, 0, 470, 28))

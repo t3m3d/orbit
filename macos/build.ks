@@ -41,16 +41,21 @@ just run {
     checked("cp " + quote(root + "/native/target/" + profile + "/orbit-engine") + " " + quote(app + "/Contents/MacOS/orbit-engine"))
     checked("cp " + quote(root + "/macos/Info.plist") + " " + quote(app + "/Contents/Info.plist"))
     // Reuse the existing Orbit artwork for Finder and the Dock.
+    // Reuse the Orbit artwork for Finder and the Dock. The source may be a PNG
+    // or a JPG, so normalise it to a PNG once and resize every icon from that.
     let icons = stage + "/Orbit.iconset"
     checked("mkdir -p " + quote(icons))
+    let art = stage + "/orbit-icon-source.png"
+    checked("sips -s format png " + quote(root + "/native/assets/orbit-icon-final.png") + " --out " + quote(art) + " >/dev/null || sips -s format png " + quote(root + "/native/assets/orbit-icon-final.jpg") + " --out " + quote(art) + " >/dev/null")
     let size = 16
     while size <= 512 {
-        checked("sips -z " + size + " " + size + " " + quote(root + "/native/assets/orbit-icon-final.png") + " --out " + quote(icons + "/icon_" + size + "x" + size + ".png") + " >/dev/null")
+        checked("sips -s format png -z " + size + " " + size + " " + quote(art) + " --out " + quote(icons + "/icon_" + size + "x" + size + ".png") + " >/dev/null")
         let retina = size * 2
-        checked("sips -z " + retina + " " + retina + " " + quote(root + "/native/assets/orbit-icon-final.png") + " --out " + quote(icons + "/icon_" + size + "x" + size + "@2x.png") + " >/dev/null")
+        checked("sips -s format png -z " + retina + " " + retina + " " + quote(art) + " --out " + quote(icons + "/icon_" + size + "x" + size + "@2x.png") + " >/dev/null")
         size *= 2
     }
     checked("iconutil -c icns " + quote(icons) + " -o " + quote(app + "/Contents/Resources/Orbit.icns"))
+    checked("sips -s format png -Z 128 " + quote(root + "/native/assets/orbit-grayscale-badge.png") + " --out " + quote(app + "/Contents/Resources/orbit-icon.png") + " >/dev/null")
     checked("cp " + quote(root + "/LICENSE") + " " + quote(app + "/Contents/Resources/LICENSE"))
     checked("cp " + quote(root + "/native/PRIVACY.md") + " " + quote(app + "/Contents/Resources/PRIVACY.md"))
     checked("plutil -lint " + quote(app + "/Contents/Info.plist"))
