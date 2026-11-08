@@ -27,7 +27,14 @@ just run {
     let root = sh("pwd")
     let krypton = env("KRYPTON_ROOT")
     if krypton == "" { krypton = root + "/../krypton" }
-    let compiler = krypton + "/kcc-native"
+    let compiler = "/usr/local/bin/kcc"
+    if shOk("test -x " + quote(compiler)) != "1" {
+        compiler = krypton + "/bootstrap/kcc_driver_macos_aarch64"
+    }
+    if shOk("test -x " + quote(compiler)) != "1" {
+        compiler = krypton + "/kcc-native"
+    }
+    if shOk("test -x " + quote(compiler)) != "1" { kp("No Krypton compiler found") exit(1) }
     let profile = "release"
     let releaseFlag = " --release"
     if arg("0") == "--debug" { profile = "debug" releaseFlag = "" }

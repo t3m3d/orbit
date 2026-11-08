@@ -478,6 +478,55 @@ func toggleFile(self, cmd, sender) {
     cocoaReload(get("files"))
     emit 1
 }
+func previewToggleFile(self, cmd, sender) {
+    let file = visibleFileAt(msg(get("previewtable"), "selectedRow"))
+    if file == 0 { emit 1 }
+    let enabled = 1 - msg(at(file, "selected"), "boolValue")
+    set(file, "selected", msg_1(cls("NSNumber"), "numberWithBool:", enabled))
+    cocoaReload(get("previewtable"))
+    emit 1
+}
+func previewDownload(self, cmd, sender) {
+    addPreview(0, 0, 0)
+    msg_1(get("previewwin"), "orderOut:", 0)
+    put("previewwin", 0)
+    put("previewtable", 0)
+    put("previewshown", cocoaNumber(0))
+    emit 1
+}
+func previewCancel(self, cmd, sender) {
+    msg_1(get("previewwin"), "orderOut:", 0)
+    put("previewwin", 0)
+    put("previewtable", 0)
+    put("previewshown", cocoaNumber(0))
+    emit 1
+}
+func previewPopup() {
+    let win = get("previewwin")
+    if win == 0 && preview() != 0 {
+        win = cocoaWindow(appH(), "Choose Files", 640, 460)
+        msg_1(win, "setRestorable:", 0)
+        purpleWindow(win)
+        msg_1(win, "setLevel:", 3)
+        msg(win, "center")
+        put("previewwin", win)
+        let tbl = cocoaTable(win, 20, 60, 600, 340)
+        let sv = msg(tbl, "enclosingScrollView")
+        msg_1(sv, "setDrawsBackground:", 1)
+        msg_1(sv, "setBackgroundColor:", cocoaRGB(22, 16, 31))
+        put("previewtable", tbl)
+        cocoaSetDataSource(tbl, get("filesDelegate"))
+        msg_1(tbl, "setHeaderView:", 0)
+        cocoaSetBg(tbl, cocoaRGB(22, 16, 31))
+        let toggleButton = buttonH(win, "Toggle Selected File", 20, 20, 170)
+        cocoaOnClickKeyed(toggleButton, "previewtogglefile", funcptr(previewToggleFile))
+        let dl = buttonH(win, "Download", 200, 20, 110)
+        cocoaOnClickKeyed(dl, "previewdownload", funcptr(previewDownload))
+        let cancel = buttonH(win, "Cancel", 320, 20, 110)
+        cocoaOnClickKeyed(cancel, "previewcancel", funcptr(previewCancel))
+        cocoaShow(win, appH())
+    }
+}
 func addPreview(self, cmd, sender) {
     let draft = preview()
     if draft == 0 { emit 1 }
@@ -582,7 +631,6 @@ func pollCore() {
     if state == 0 { emit 0 }
     let oldPreview = preview()
     let nextPreview = at(state, "preview")
-    // Keep local file selections when the same preview arrives in a new snapshot.
     if oldPreview != 0 && nextPreview != 0 {
         if str(at(oldPreview, "info_hash")) == str(at(nextPreview, "info_hash")) { set(state, "preview", oldPreview) }
     }
@@ -617,8 +665,17 @@ func pollCore() {
         }
     }
     cocoaReload(get("files"))
-    if preview() == 0 { cocoaSetText(get("previewtitle"), "Preview a torrent to choose files before downloading.") }
-    else { cocoaSetText(get("previewtitle"), str(at(preview(), "name"))) }
+    let curHash = ""
+    if preview() != 0 { curHash = str(at(preview(), "info_hash")) }
+    let known = str(get("previewhash"))
+    if preview() != 0 && (known == "" || known != curHash) { previewPopup() }
+    if preview() == 0 {
+        put("previewshown", cocoaNumber(0))
+        put("previewhash", nsString(""))
+    } else {
+        put("previewshown", cocoaNumber(1))
+        put("previewhash", nsString(curHash))
+    }
     cocoaSetEnabled(get("add"), preview() != 0)
     if get("loaded") == 0 {
         let settings = at(state, "settings")
@@ -728,6 +785,7 @@ just run {
     cocoaClassAddMethod(filesClass, "tableView:objectValueForTableColumn:row:", funcptr(fileValue), "@@:@@q")
     cocoaClassRegister(filesClass)
     let filesDelegate = cocoaNew(filesClass)
+    put("filesDelegate", filesDelegate)
     msg_1(win, "setDelegate:", delegate)
     msg_1(app, "setDelegate:", delegate)
     put("headericon", headerIcon(win, 24, 748, 30))
@@ -779,22 +837,30 @@ just run {
     let removeButton = buttonH(win, "Remove…", 742, 344, 120)
     cocoaOnClickKeyed(removeButton, "remove", funcptr(removeSelected))
     put("previewtitle", labelH(win, "Preview a torrent to choose files before downloading.", 24, 310, 1060, 24))
+    cocoaSetHidden(get("previewtitle"), 1)
     put("files", cocoaTable(win, 24, 192, 720, 110))
     put("filesscroll", msg(get("files"), "enclosingScrollView"))
+    cocoaSetHidden(get("filesscroll"), 1)
     cocoaSetDataSource(get("files"), filesDelegate)
     msg_1(get("files"), "setHeaderView:", 0)
     let togglefileButton = buttonH(win, "Toggle Selected File", 764, 266, 326)
+    cocoaSetHidden(togglefileButton, 1)
     cocoaOnClickKeyed(togglefileButton, "togglefile", funcptr(toggleFile))
     put("paused", cocoaCheckbox(win, "Start paused", 764, 233, 180, 26))
+    cocoaSetHidden(get("paused"), 1)
     let policies = cocoaArray()
     cocoaArrayAdd(policies, nsString("Stop when complete"))
     cocoaArrayAdd(policies, nsString("Keep seeding"))
     cocoaArrayAdd(policies, nsString("Remove when complete (keep files)"))
     put("policy", popup(win, 764, 198, 326, policies))
+    cocoaSetHidden(get("policy"), 1)
     put("destination", inputH(win, 24, 150, 720, 28))
+    cocoaSetHidden(get("destination"), 1)
     let destinationButton = buttonH(win, "Choose Folder…", 764, 148, 148)
+    cocoaSetHidden(destinationButton, 1)
     cocoaOnClickKeyed(destinationButton, "destination", funcptr(chooseDestination))
     put("add", buttonH(win, "Add Transfer", 920, 148, 170))
+    cocoaSetHidden(get("add"), 1)
     cocoaOnClickKeyed(get("add"), "add", funcptr(addPreview))
     cocoaSetEnabled(get("add"), 0)
     let settingsButton = buttonH(win, "Settings…", 24, 101, 140)
