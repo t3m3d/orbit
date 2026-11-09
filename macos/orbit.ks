@@ -452,7 +452,7 @@ func fileValue(self, cmd, table, column, index) {
     let file = visibleFileAt(index)
     let text = ""
     if file != 0 {
-        let marker = "[ ] "
+        let marker = "[  ] "
         if msg(at(file, "selected"), "boolValue") == 1 { marker = "[✓] " }
         text = marker + str(at(file, "name")) + "   ·   " + str(at(file, "length")) + " bytes"
     }
@@ -478,12 +478,12 @@ func toggleFile(self, cmd, sender) {
     cocoaReload(get("files"))
     emit 1
 }
-func previewToggleFile(self, cmd, sender) {
-    let file = visibleFileAt(msg(get("previewtable"), "selectedRow"))
+func previewTableClicked(self, cmd, sender) {
+    let file = visibleFileAt(msg(sender, "clickedRow"))
     if file == 0 { emit 1 }
     let enabled = 1 - msg(at(file, "selected"), "boolValue")
     set(file, "selected", msg_1(cls("NSNumber"), "numberWithBool:", enabled))
-    cocoaReload(get("previewtable"))
+    cocoaReload(sender)
     emit 1
 }
 func previewDownload(self, cmd, sender) {
@@ -518,11 +518,10 @@ func previewPopup() {
         cocoaSetDataSource(tbl, get("filesDelegate"))
         msg_1(tbl, "setHeaderView:", 0)
         cocoaSetBg(tbl, cocoaRGB(22, 16, 31))
-        let toggleButton = buttonH(win, "Toggle Selected File", 20, 20, 170)
-        cocoaOnClickKeyed(toggleButton, "previewtogglefile", funcptr(previewToggleFile))
-        let dl = buttonH(win, "Download", 200, 20, 110)
+        cocoaOnClickKeyed(tbl, "previewtableclick", funcptr(previewTableClicked))
+        let dl = buttonH(win, "Download", 20, 20, 110)
         cocoaOnClickKeyed(dl, "previewdownload", funcptr(previewDownload))
-        let cancel = buttonH(win, "Cancel", 320, 20, 110)
+        let cancel = buttonH(win, "Cancel", 140, 20, 110)
         cocoaOnClickKeyed(cancel, "previewcancel", funcptr(previewCancel))
         cocoaShow(win, appH())
     }
@@ -899,10 +898,10 @@ just run {
                 if len(handlerReport()) == 0 { kp("FAIL: browser handler report") exit(1) }
                 if handlesBoth() == 1 && str(msg(get("browser"), "title")) != "Browser Links: Orbit" { kp("FAIL: handler state label") exit(1) }
                 if handlesBoth() == 0 && str(msg(get("browser"), "title")) == "Browser Links: Orbit" { kp("FAIL: handler state label") exit(1) }
-                let tableHeight = msgRectHeight(msg(get("tablescroll"), "frame"))
+                let tableHeight = msgRectHeight(get("tablescroll"), "frame")
                 msg_d2(win, "setContentSize:", 1200, 900)
                 layout()
-                if msgRectHeight(msg(get("tablescroll"), "frame")) <= tableHeight { kp("FAIL: resize layout") exit(1) }
+                if msgRectHeight(get("tablescroll"), "frame") <= tableHeight { kp("FAIL: resize layout") exit(1) }
                 msg_d2(win, "setContentSize:", 1120, 800)
                 layout()
                 msg_1(settingsButton, "performClick:", 0)

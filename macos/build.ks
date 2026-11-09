@@ -27,9 +27,9 @@ just run {
     let root = sh("pwd")
     let krypton = env("KRYPTON_ROOT")
     if krypton == "" { krypton = root + "/../krypton" }
-    let compiler = "/usr/local/bin/kcc"
+    let compiler = krypton + "/bootstrap/kcc_driver_macos_aarch64"
     if shOk("test -x " + quote(compiler)) != "1" {
-        compiler = krypton + "/bootstrap/kcc_driver_macos_aarch64"
+        compiler = "/usr/local/bin/kcc"
     }
     if shOk("test -x " + quote(compiler)) != "1" {
         compiler = krypton + "/kcc-native"
