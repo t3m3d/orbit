@@ -16,14 +16,14 @@ func quote(s) {
 func checked(command) {
     let output = exec("( " + command + " ) 2>&1; status=$?; printf '\n__ORBIT_STATUS_%s' \"$status\"")
     let marker = indexOf(output, "\n__ORBIT_STATUS_")
-    if marker < 0 { kp(output) exit(1) }
+    if marker < 0 { print(output) exit(1) }
     let message = substring(output, 0, marker)
-    if len(message) > 0 { kp(message) }
+    if len(message) > 0 { print(message) }
     if substring(output, marker + 16, len(output)) != "0" { exit(1) }
     emit 1
 }
 just run {
-    if sh("uname -sm") != "Darwin arm64" { kp("This build targets Apple Silicon macOS.") exit(1) }
+    if sh("uname -sm") != "Darwin arm64" { print("This build targets Apple Silicon macOS.") exit(1) }
     let root = sh("pwd")
     let krypton = env("KRYPTON_ROOT")
     if krypton == "" { krypton = root + "/../krypton" }
@@ -34,14 +34,14 @@ just run {
     if shOk("test -x " + quote(compiler)) != "1" {
         compiler = krypton + "/kcc-native"
     }
-    if shOk("test -x " + quote(compiler)) != "1" { kp("No Krypton compiler found") exit(1) }
+    if shOk("test -x " + quote(compiler)) != "1" { print("No Krypton compiler found") exit(1) }
     let profile = "release"
     let releaseFlag = " --release"
     if arg("0") == "--debug" { profile = "debug" releaseFlag = "" }
     checked("cargo build --locked --no-default-features --manifest-path " + quote(root + "/native/Cargo.toml") + releaseFlag + " --bin orbit-engine")
     checked("mkdir -p " + quote(root + "/native/target"))
     let stage = sh("mktemp -d " + quote(root + "/native/target/macos-build.XXXXXX"))
-    if stage == "" { kp("Could not create staging directory") exit(1) }
+    if stage == "" { print("Could not create staging directory") exit(1) }
     let app = stage + "/Orbit.app"
     checked("mkdir -p " + quote(app + "/Contents/MacOS") + " " + quote(app + "/Contents/Resources"))
     checked("env KRYPTON_ROOT=" + quote(krypton) + " " + quote(compiler) + " " + quote(root + "/macos/orbit.ks") + " -o " + quote(app + "/Contents/MacOS/Orbit"))
@@ -70,5 +70,5 @@ just run {
     checked("rm -rf " + quote(destination))
     checked("mv " + quote(app) + " " + quote(destination))
     checked("rm -rf " + quote(stage))
-    kp("Built " + destination + " (" + profile + ")")
+    print("Built " + destination + " (" + profile + ")")
 }

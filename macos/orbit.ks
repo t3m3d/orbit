@@ -168,10 +168,10 @@ func labelH(win, title, x, y, w, h) {
 func headerIcon(win, x, y, size) {
     let view = msg_frame(msg(cls("NSImageView"), "alloc"), "initWithFrame:", x, y, size, size)
     let path = msg_2(msg(cls("NSBundle"), "mainBundle"), "pathForResource:ofType:", nsString("orbit-icon"), nsString("png"))
-    if path == 0 { kp("header icon: orbit-icon.png missing from Resources") }
+    if path == 0 { print("header icon: orbit-icon.png missing from Resources") }
     if path != 0 {
         let img = msg_1(msg(cls("NSImage"), "alloc"), "initWithContentsOfFile:", path)
-        if img == 0 { kp("header icon: orbit-icon.png could not be decoded") }
+        if img == 0 { print("header icon: orbit-icon.png could not be decoded") }
         if img != 0 { msg_1(view, "setImage:", img) }
     }
     msg_d1(view, "setImageScaling:", 3)
@@ -739,7 +739,7 @@ func pollCore() {
 
 just run {
     let smoke = arg("0") == "--smoke"
-    if smoke && environ("ORBIT_DATA_DIR") == "" { kp("FAIL: smoke requires isolated ORBIT_DATA_DIR") exit(1) }
+    if smoke && environ("ORBIT_DATA_DIR") == "" { print("FAIL: smoke requires isolated ORBIT_DATA_DIR") exit(1) }
     if smoke { put("smoke", cocoaNumber(1)) }
     // Orbit keeps no document or window state to restore. Without this, a past
     // crash makes macOS block launch behind its "reopen windows?" crash prompt.
@@ -881,41 +881,41 @@ just run {
         if frames % 20 == 0 { pollCore() }
         if msg(get("task"), "isRunning") != 1 {
             cocoaSetText(get("status"), "Torrent core stopped. Quit and reopen Orbit.")
-            if smoke { kp("FAIL: core stopped") exit(1) }
+            if smoke { print("FAIL: core stopped") exit(1) }
         }
         if smoke && get("loaded") != 0 {
-            if str(at(get("state"), "protocol")) != "1" { kp("FAIL: bridge protocol") exit(1) }
+            if str(at(get("state"), "protocol")) != "1" { print("FAIL: bridge protocol") exit(1) }
             if smokeStage == 0 {
-                if msg(get("source"), "superview") != 0 { kp("FAIL: paste field visible in main window") exit(1) }
+                if msg(get("source"), "superview") != 0 { print("FAIL: paste field visible in main window") exit(1) }
                 msg_1(pauseButton, "performClick:", 0)
-                if field("status") != "Select a transfer first." { kp("FAIL: native button callback") exit(1) }
+                if field("status") != "Select a transfer first." { print("FAIL: native button callback") exit(1) }
                 let urls = cocoaArray()
                 cocoaArrayAdd(urls, cocoaURL("magnet:?xt=urn:btih:0000000000000000000000000000000000000000"))
                 msg_2(delegate, "application:openURLs:", app, urls)
-                if cocoaArrayCount(get("pending")) != 1 { kp("FAIL: magnet Apple event intake") exit(1) }
+                if cocoaArrayCount(get("pending")) != 1 { print("FAIL: magnet Apple event intake") exit(1) }
                 cocoaArrayRemove(get("pending"), 0)
-                if indexOf(bundlePath(), "Orbit.app") < 0 { kp("FAIL: bundle path detection") exit(1) }
-                if len(handlerReport()) == 0 { kp("FAIL: browser handler report") exit(1) }
-                if handlesBoth() == 1 && str(msg(get("browser"), "title")) != "Browser Links: Orbit" { kp("FAIL: handler state label") exit(1) }
-                if handlesBoth() == 0 && str(msg(get("browser"), "title")) == "Browser Links: Orbit" { kp("FAIL: handler state label") exit(1) }
+                if indexOf(bundlePath(), "Orbit.app") < 0 { print("FAIL: bundle path detection") exit(1) }
+                if len(handlerReport()) == 0 { print("FAIL: browser handler report") exit(1) }
+                if handlesBoth() == 1 && str(msg(get("browser"), "title")) != "Browser Links: Orbit" { print("FAIL: handler state label") exit(1) }
+                if handlesBoth() == 0 && str(msg(get("browser"), "title")) == "Browser Links: Orbit" { print("FAIL: handler state label") exit(1) }
                 let tableHeight = msgRectHeight(get("tablescroll"), "frame")
                 msg_d2(win, "setContentSize:", 1200, 900)
                 layout()
-                if msgRectHeight(get("tablescroll"), "frame") <= tableHeight { kp("FAIL: resize layout") exit(1) }
+                if msgRectHeight(get("tablescroll"), "frame") <= tableHeight { print("FAIL: resize layout") exit(1) }
                 msg_d2(win, "setContentSize:", 1120, 800)
                 layout()
                 msg_1(settingsButton, "performClick:", 0)
-                if get("settingswin") == 0 { kp("FAIL: settings window") exit(1) }
+                if get("settingswin") == 0 { print("FAIL: settings window") exit(1) }
                 msg_1(get("settingsapply"), "performClick:", 0)
                 smokeStage = 1
             } else {
                 if msg(at(at(get("state"), "settings"), "network_setup_completed"), "boolValue") == 1 {
-                    kp("PASS: Objective-K callbacks, magnet intake, hidden paste field, settings bridge")
+                    print("PASS: Objective-K callbacks, magnet intake, hidden paste field, settings bridge")
                     put("quitting", cocoaNumber(1))
                 }
             }
         }
-        if smoke && frames > 1000 { kp("FAIL: core startup timeout") exit(1) }
+        if smoke && frames > 1000 { print("FAIL: core startup timeout") exit(1) }
         msg(pool, "drain")
         sleepUs(0, 8000)
         frames += 1
