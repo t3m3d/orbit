@@ -124,11 +124,27 @@ func handlesBoth() {
     emit 1
 }
 func refreshHandler(announce) {
-    cocoaSetToolTip(get("browser"), handlerReport())
-    if handlesBoth() == 1 { cocoaSetTitle(get("browser"), "Browser Links: Orbit") }
-    else { cocoaSetTitle(get("browser"), "Use Orbit for Browser Links…") }
-    if announce == 1 && handlesBoth() == 1 {
-        cocoaAlert("Browser links", "Magnet links and .torrent files now open in this copy of Orbit.\n\n" + handlerReport())
+    let report = handlerReport()
+    let ours = handlesBoth()
+    cocoaSetToolTip(get("browser"), report)
+    if ours == 1 { cocoaSetTitle(get("browser"), "Default Torrent App: Orbit") }
+    else { cocoaSetTitle(get("browser"), "Make Orbit Default…") }
+    if get("defaultapp") != 0 {
+        cocoaSetToolTip(get("defaultapp"), report)
+        cocoaSetToolTip(get("defaultstatus"), report)
+        if ours == 1 {
+            cocoaSetTitle(get("defaultapp"), "Orbit Is the Default — Check Again…")
+            cocoaSetText(get("defaultstatus"), "This copy of Orbit handles .torrent files and magnet links.")
+        } else {
+            cocoaSetTitle(get("defaultapp"), "Make Orbit the Default Torrent App…")
+            cocoaSetText(get("defaultstatus"), "Choose Orbit for .torrent files and magnet links.")
+        }
+    }
+    if announce == 1 && ours == 1 {
+        let alert = alertH()
+        msg_1(alert, "setMessageText:", nsString("Orbit is your default torrent app"))
+        msg_1(alert, "setInformativeText:", nsString("Magnet links and .torrent files now open in this copy of Orbit.\n\n" + report))
+        msg(alert, "runModal")
     }
     emit 1
 }
@@ -249,7 +265,7 @@ func useBrowserLinks(self, cmd, sender) {
     let installed = isInstalledPath()
     let path = bundlePath()
     let alert = alertH()
-    msg_1(alert, "setMessageText:", nsString("Use Orbit for browser links?"))
+    msg_1(alert, "setMessageText:", nsString("Make Orbit your default torrent app?"))
     let detail = "Make this copy of Orbit the macOS handler for magnet links and .torrent files. Your browser or macOS may ask before opening Orbit. HTTP torrent links download a .torrent file first; open that file with Orbit.\n\nCurrent handlers\n" + handlerReport()
     if installed == 0 {
         detail = "Orbit is running from a build folder:\n" + path + "\n\nmacOS records this exact location as the link handler, so browser links stop working when the build is replaced. Move Orbit.app to /Applications (or another permanent folder), open it there, and choose this again.\n\nCurrent handlers\n" + handlerReport()
@@ -272,7 +288,8 @@ func useBrowserLinks(self, cmd, sender) {
     msg_3(workspace, "setDefaultApplicationAtURL:toOpenContentTypeOfFileAtURL:completionHandler:", applicationURL, cocoaFileURL(torrentProbe()), 0)
     put("handlerchecks", cocoaNumber(0))
     put("handlerwait", cocoaNumber(1))
-    cocoaSetToolTip(get("browser"), "Browser handoff requested. Waiting for macOS to confirm…")
+    cocoaSetToolTip(get("browser"), "Default torrent app requested. Waiting for macOS to confirm…")
+    if get("defaultstatus") != 0 { cocoaSetText(get("defaultstatus"), "Waiting for macOS confirmation…") }
     emit 1
 }
 func chooseTorrent(self, cmd, sender) {
@@ -345,6 +362,10 @@ func showWelcome() {
 }
 func closeWelcome(self, cmd, sender) { msg_1(get("welcomewin"), "orderOut:", 0) emit 1 }
 func settingsControls(win) {
+    labelH(win, "DEFAULT TORRENT APP", 24, 408, 470, 26)
+    put("defaultapp", buttonH(win, "Make Orbit the Default Torrent App…", 24, 370, 472))
+    cocoaOnClickKeyed(get("defaultapp"), "defaulttorrent", funcptr(useBrowserLinks))
+    put("defaultstatus", labelH(win, "Choose Orbit for .torrent files and magnet links.", 24, 340, 472, 24))
     labelH(win, "NETWORK", 24, 292, 300, 28)
     labelH(win, "Uploads stay blocked unless you choose Standard, which needs a confirmation.", 24, 262, 470, 22)
     let modes = cocoaArray()
@@ -368,7 +389,7 @@ func settingsControls(win) {
 func openSettings(self, cmd, sender) {
     let win = get("settingswin")
     if win == 0 {
-        win = cocoaWindow(appH(), "Orbit Settings", 520, 340)
+        win = cocoaWindow(appH(), "Orbit Settings", 520, 460)
         msg_1(win, "setRestorable:", 0)
         purpleWindow(win)
         msg(win, "center")
@@ -376,6 +397,7 @@ func openSettings(self, cmd, sender) {
         put("settingswin", win)
     }
     if get("state") != 0 { syncSettingsControls(at(get("state"), "settings")) }
+    refreshHandler(0)
     cocoaShow(win, appH())
     emit 1
 }
@@ -726,10 +748,15 @@ func pollCore() {
             put("handlerwait", cocoaNumber(0))
             refreshHandler(1)
         } else {
-            if checks >= 12 {
+            // Allow time to read and accept macOS's asynchronous consent prompt.
+            if checks >= 750 {
                 put("handlerwait", cocoaNumber(0))
                 refreshHandler(0)
                 cocoaSetToolTip(get("browser"), handlerReport() + "\n\nmacOS did not confirm this copy as the handler. Move Orbit.app to /Applications, open it there, and try again.")
+                if get("defaultstatus") != 0 {
+                    cocoaSetText(get("defaultstatus"), "macOS has not confirmed both defaults. Hover for details.")
+                    cocoaSetToolTip(get("defaultstatus"), handlerReport() + "\n\nAccept any macOS confirmation, or retry from the permanent copy of Orbit.")
+                }
             }
         }
     }
@@ -758,7 +785,7 @@ just run {
     let file = cocoaMenuAdd(bar, "File")
     cocoaMenuItem(file, "Open Torrent…", "o", funcptr(chooseTorrent))
     cocoaMenuItem(file, "Add Link…", "l", funcptr(onPreview))
-    cocoaMenuItem(file, "Use Orbit for Browser Links…", "", funcptr(useBrowserLinks))
+    cocoaMenuItem(file, "Make Orbit Default Torrent App…", "", funcptr(useBrowserLinks))
     let edit = cocoaMenuAdd(bar, "Edit")
     cocoaMenuItemSel(edit, "Cut", "x", "cut:")
     cocoaMenuItemSel(edit, "Copy", "c", "copy:")
@@ -803,7 +830,7 @@ just run {
     let openButton = buttonH(win, "Open Torrent…", 196, 666, 170)
     cocoaOnClickKeyed(openButton, "open", funcptr(chooseTorrent))
     put("opentorrent", openButton)
-    let browserButton = buttonH(win, "Use Orbit for Browser Links…", 378, 666, 260)
+    let browserButton = buttonH(win, "Make Orbit Default…", 378, 666, 260)
     cocoaOnClickKeyed(browserButton, "browser", funcptr(useBrowserLinks))
     put("browser", browserButton)
     put("hint", labelH(win, "Preview first. Choose files. Download.", 660, 671, 430, 24))
@@ -896,8 +923,8 @@ just run {
                 cocoaArrayRemove(get("pending"), 0)
                 if indexOf(bundlePath(), "Orbit.app") < 0 { print("FAIL: bundle path detection") exit(1) }
                 if len(handlerReport()) == 0 { print("FAIL: browser handler report") exit(1) }
-                if handlesBoth() == 1 && str(msg(get("browser"), "title")) != "Browser Links: Orbit" { print("FAIL: handler state label") exit(1) }
-                if handlesBoth() == 0 && str(msg(get("browser"), "title")) == "Browser Links: Orbit" { print("FAIL: handler state label") exit(1) }
+                if handlesBoth() == 1 && str(msg(get("browser"), "title")) != "Default Torrent App: Orbit" { print("FAIL: handler state label") exit(1) }
+                if handlesBoth() == 0 && str(msg(get("browser"), "title")) == "Default Torrent App: Orbit" { print("FAIL: handler state label") exit(1) }
                 let tableHeight = msgRectHeight(get("tablescroll"), "frame")
                 msg_d2(win, "setContentSize:", 1200, 900)
                 layout()
@@ -906,6 +933,8 @@ just run {
                 layout()
                 msg_1(settingsButton, "performClick:", 0)
                 if get("settingswin") == 0 { print("FAIL: settings window") exit(1) }
+                if get("defaultapp") == 0 { print("FAIL: default torrent app control") exit(1) }
+                if handlesBoth() == 0 && str(msg(get("defaultapp"), "title")) != "Make Orbit the Default Torrent App…" { print("FAIL: default app settings label") exit(1) }
                 msg_1(get("settingsapply"), "performClick:", 0)
                 smokeStage = 1
             } else {

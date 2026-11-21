@@ -17,3 +17,6 @@
 /.wrangler/
 /.pnpm-store/
 __pycache__/
+
+# Local macOS app build instructions
+/BUILD_MACOS_APP.local.md
