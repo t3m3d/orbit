@@ -1,12 +1,15 @@
 # Orbit
 
-Orbit is a local-first native BitTorrent client with the Krypton/Cortex visual theme. The macOS frontend is written in **KryptScript / Objective-K** in [`macos/`](macos/), backed by the existing Rust `librqbit` engine in [`native/`](native/). The Rust frontend remains available for Windows. There is no server account, hosted backend, or required website.
+Orbit is a local-first native BitTorrent client with the Krypton/Cortex visual theme. The macOS frontend is written in **KryptScript / Objective-K** in [`macos/`](macos/), backed by the existing Rust `librqbit` engine in [`native/`](native/). Windows and Linux use the Rust desktop frontend. There is no server account, hosted backend, or required website.
 
 For Apple Silicon builds, supported Mac workflows, and verification, see [`macos/README.md`](macos/README.md). The feature list below describes the original Rust frontend; the Mac document records the current differences.
+
+For the **Linux x86-64** package, desktop launcher/default torrent registration, native build, and Docker verification, see [`linux/README.md`](linux/README.md). Linux supports X11 and Wayland with portal file dialogs; background tray operation is disabled.
 
 ## Source layout
 
 - `macos/` — KryptScript / Objective-K frontend and app-bundle builder.
+- `linux/` — Linux x86-64 package builder, Docker verification, and run/install instructions.
 - `native/src/engine.rs`, `native/src/engine/`, `native/src/settings.rs`, and `native/src/storage.rs` — shared Rust torrent core, persistence, and storage checks.
 - `native/src/bin/orbit-engine.rs` — private process bridge used by the Mac app.
 - `native/src/main.rs`, `native/src/tray.rs`, and `native/src/network_profile.rs` — original Rust desktop frontend and Windows integration.

@@ -1,11 +1,17 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod engine;
+#[cfg(target_os = "linux")]
+mod linux_desktop;
 mod network_profile;
 mod settings;
 #[cfg(test)]
 mod settings_tests;
 mod storage;
+#[cfg(not(target_os = "linux"))]
+mod tray;
+#[cfg(target_os = "linux")]
+#[path = "tray_linux.rs"]
 mod tray;
 #[cfg(test)]
 mod ui_tests;
@@ -214,9 +220,12 @@ fn normalized_local_path(source: &str) -> PathBuf {
 }
 
 fn collect_startup_sources() -> Vec<String> {
-    std::env::args_os()
+    let sources = std::env::args_os()
         .skip(1)
-        .map(|argument| argument.to_string_lossy().into_owned())
+        .map(|argument| argument.to_string_lossy().into_owned());
+    #[cfg(target_os = "linux")]
+    let sources = sources.filter_map(linux_desktop::normalize_source);
+    sources
         .filter(|source| is_supported_source(source))
         .collect()
 }
@@ -2496,10 +2505,12 @@ impl OrbitApp {
                 );
                 ui.separator();
                 ui.heading(RichText::new("Desktop & automation").size(16.0));
-                ui.checkbox(
+                ui.add_enabled_ui(self.tray.is_some(), |ui| { ui.checkbox(
                     &mut self.settings_editor.close_to_tray,
                     "Allow transfers to continue after closing the window (keep Orbit in tray)",
-                );
+                ); });
+                #[cfg(target_os = "linux")]
+                ui.label("Linux: closing the window quits Orbit; background tray operation is unavailable.");
                 ui.label(
                     RichText::new(
                         "Off by default. When enabled, closing hides the window but leaves the \
@@ -2531,6 +2542,13 @@ impl OrbitApp {
                     }
                 });
                 ui.horizontal(|ui| {
+                    #[cfg(target_os = "linux")]
+                    if ui.button("Make Orbit the default torrent app").clicked() {
+                        match linux_desktop::make_default() {
+                            Ok(()) => self.notice = "Orbit is the default for .torrent files and magnet links".into(),
+                            Err(error) => self.error = Some(format!("Could not set default app: {error:#}")),
+                        }
+                    }
                     #[cfg(windows)]
                     if ui.button("Windows default-app settings").clicked()
                         && let Err(error) = open_default_apps()
@@ -2699,11 +2717,36 @@ impl eframe::App for OrbitApp {
         self.about_modal(&ctx);
         self.startup_setup_modal(&ctx);
         self.settings_modal(&ctx);
+        #[cfg(target_os = "linux")]
+        if std::env::args().any(|arg| arg == "--smoke")
+            && ctx.cumulative_frame_nr() >= 3
+            && self.core_state != CoreState::Starting
+        {
+            println!("PASS: Linux native window rendered with the torrent core available");
+            self.quitting = true;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
         ctx.request_repaint_after(Duration::from_millis(250));
     }
 }
 
 fn main() -> eframe::Result {
+    #[cfg(target_os = "linux")]
+    if std::env::args().any(|arg| arg == "--smoke") && std::env::var_os("ORBIT_DATA_DIR").is_none()
+    {
+        eprintln!("Orbit: --smoke requires an isolated ORBIT_DATA_DIR");
+        std::process::exit(1);
+    }
+    #[cfg(target_os = "linux")]
+    if let Some(result) = linux_desktop::handle_cli() {
+        match result {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                eprintln!("Orbit: {error:#}");
+                std::process::exit(1);
+            }
+        }
+    }
     let icon = eframe::icon_data::from_png_bytes(include_bytes!("../assets/orbit-icon-final.png"))
         .expect("embedded Orbit icon is valid PNG data");
     let startup_sources = collect_startup_sources();
@@ -2719,6 +2762,7 @@ fn main() -> eframe::Result {
     let tray_icon = icon.clone();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
+            .with_app_id("org.krypton-lang.orbit")
             .with_title("Orbit — Krypton Torrent Client")
             .with_icon(icon)
             .with_inner_size([1260.0, 820.0])

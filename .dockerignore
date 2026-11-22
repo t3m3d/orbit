@@ -1,0 +1,10 @@
+**
+!native/
+!native/**
+native/target/
+native/Orbit.exe
+native/*.log
+!linux/
+!linux/Dockerfile
+!linux/README.md
+!LICENSE
