@@ -62,9 +62,12 @@ Linux x86-64 Krypton checkout. From the Orbit repository:
 
 ```sh
 export KRYPTON_ROOT=/path/to/krypton
-"$KRYPTON_ROOT/bootstrap/kcc_driver_linux_x86_64" linux/build.ks -o /tmp/orbit-build
+"$KRYPTON_ROOT/bootstrap/kcc_driver_linux_x86_64" --x64 linux/build.ks -o /tmp/orbit-build
 /tmp/orbit-build
 ```
+
+The explicit `--x64` keeps the helper on the requested architecture, including
+when building in an emulated container on an ARM Mac.
 
 Output: `native/target/linux/orbit-linux-x86_64.tar.gz` and `SHA256SUMS`.
 To build only the executable without Krypton:

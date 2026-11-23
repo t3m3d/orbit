@@ -12,6 +12,7 @@ COPY native/ native/
 COPY LICENSE LICENSE
 COPY linux/README.md linux/README.md
 RUN --mount=type=cache,id=orbit-linux-x86_64-target,target=/orbit/native/target --mount=type=cache,target=/usr/local/cargo/registry cargo build --locked --manifest-path native/Cargo.toml --release --bin orbit-native --bin orbit-engine
+RUN rustup component add clippy
 RUN --mount=type=cache,id=orbit-linux-x86_64-target,target=/orbit/native/target --mount=type=cache,target=/usr/local/cargo/registry cargo clippy --locked --manifest-path native/Cargo.toml --all-targets -- -D warnings \
     && cargo test --locked --manifest-path native/Cargo.toml --all-targets
 # Exercise real X11 rendering with software OpenGL, without a public torrent.
